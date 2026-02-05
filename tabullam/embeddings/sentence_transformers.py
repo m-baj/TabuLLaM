@@ -1,7 +1,7 @@
 """SentenceTransformers embedding backend."""
 
 import numpy as np
-from typing import List, Optional
+from typing import List
 
 from .base import BaseEmbedder
 from ..exceptions import EmbeddingError

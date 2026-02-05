@@ -1,8 +1,8 @@
 """Google Gemini LLM backend."""
 
-from typing import Optional, Dict, Any
+from typing import Optional
 
-from ..base.llm_backend import BaseLLMBackend, LLMResponse, LLMResponseDuration
+from ..base.llm_backend import BaseLLMBackend, LLMResponse
 from ..exceptions import LLMBackendError
 from .langchain import parse_langchain_response
 

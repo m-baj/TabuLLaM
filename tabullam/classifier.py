@@ -10,7 +10,6 @@ from typing import Optional, List, Dict, Any, Union
 from tqdm import tqdm
 import logging
 
-from .base.llm_backend import BaseLLMBackend, LLMResponse
 from .base.prompt_builder import TaskMetadata
 from .prompt_builders import create_prompt_builder
 from .response_parsers import create_response_parser
@@ -21,7 +20,7 @@ from .base.vector_store import BaseVectorStore
 from .vector_stores.sklearn_store import SklearnVectorStore
 from .utils.serialization import key_value_serialize
 from .utils.validation import validate_mode
-from .exceptions import NotFittedError, ConfigurationError
+from .exceptions import ConfigurationError
 
 
 logger = logging.getLogger(__name__)

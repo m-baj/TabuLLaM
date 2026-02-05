@@ -1,7 +1,6 @@
 """Langchain-based LLM backend."""
 
 import time
-from typing import Optional, Dict, Any
 
 from ..base.llm_backend import BaseLLMBackend, LLMResponse, LLMResponseDuration
 from ..exceptions import LLMBackendError
@@ -123,7 +122,7 @@ class LangchainBackend(BaseLLMBackend):
 
     def generate(self, prompt: str) -> LLMResponse:
         """Generate response using Langchain."""
-        import time
+        
         start_time = time.time()
 
         try:
