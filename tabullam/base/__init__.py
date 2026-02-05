@@ -15,17 +15,17 @@ from .response_parser import (
 from .vector_store import (
     BaseVectorStore,
 )
+from .embedder import (
+    BaseEmbedder,
+)
 
 __all__ = [
-    # LLM Backend base classes
     'LLMResponse',
     'LLMResponseDuration',
     'BaseLLMBackend',
-    # Prompt Builder base class
     'TaskMetadata',
     'BasePromptBuilder',
-    # Response Parser base class
     'BaseResponseParser',
-    # Vector Store base class
     'BaseVectorStore',
+    'BaseEmbedder',
 ]

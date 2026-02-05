@@ -15,7 +15,7 @@ from .base.prompt_builder import TaskMetadata
 from .prompt_builders import create_prompt_builder
 from .response_parsers import create_response_parser
 from .llm_backends import create_llm_backend
-from .embeddings.base import BaseEmbedder
+from .base.embedder import BaseEmbedder
 from .embeddings.ollama import OllamaEmbedder
 from .base.vector_store import BaseVectorStore
 from .vector_stores.sklearn_store import SklearnVectorStore
@@ -53,7 +53,13 @@ class TabularLLMClassifier(ClassifierMixin, BaseEstimator):
 
     embedder : BaseEmbedder or None, default=None
         Embedder for semantic_few_shot mode. If None and mode='semantic_few_shot',
-        will use default OllamaEmbedder('nomic-embed-text')
+        will use default OllamaEmbedder('nomic-embed-text').
+        Not needed when precomputed_embeddings is provided.
+
+    precomputed_embeddings : ndarray of shape (n_samples, embedding_dim), optional
+        Pre-computed embeddings for training data. When provided,
+        the embedder is not used during fit() and the vector store
+        is built directly from these embeddings.
 
     vector_store : str or BaseVectorStore, default='sklearn'
         Vector store backend: 'sklearn' or a BaseVectorStore instance
@@ -105,6 +111,7 @@ class TabularLLMClassifier(ClassifierMixin, BaseEstimator):
         mode: str = 'zero_shot',
         k_shots: int = 5,
         embedder: Optional[BaseEmbedder] = None,
+        precomputed_embeddings: Optional[np.ndarray] = None,
         vector_store: Union[str, BaseVectorStore] = 'sklearn',
         task_description: Optional[str] = None,
         instruction: Optional[str] = None,
@@ -118,6 +125,7 @@ class TabularLLMClassifier(ClassifierMixin, BaseEstimator):
         self.mode = mode
         self.k_shots = k_shots
         self.embedder = embedder
+        self.precomputed_embeddings = precomputed_embeddings
         self.vector_store = vector_store
         self.task_description = task_description
         self.instruction = instruction
@@ -152,26 +160,20 @@ class TabularLLMClassifier(ClassifierMixin, BaseEstimator):
         if not isinstance(X, pd.DataFrame):
             X = pd.DataFrame(X)
 
-        # Store feature information
         self.n_features_in_ = X.shape[1]
         self.feature_names_in_ = np.array(X.columns.tolist())
 
-        # Store class information
         y = np.asarray(y)
         self.classes_ = np.unique(y)
 
-        # Set default positive class for binary classification
         if self.positive_class is None and len(self.classes_) == 2:
             self.positive_class = str(self.classes_[1])
 
-        # Store training data for few-shot modes
         self._X_train = X.copy()
         self._y_train = y.copy()
 
-        # Initialize LLM backend
         self._llm_backend = create_llm_backend(self.llm, **self.llm_kwargs)
 
-        # Initialize task metadata
         self._task_metadata = TaskMetadata(
             feature_names=self.feature_names_in_.tolist(),
             class_labels=[str(c) for c in self.classes_],
@@ -179,11 +181,9 @@ class TabularLLMClassifier(ClassifierMixin, BaseEstimator):
             task_description=self.task_description
         )
 
-        # Cache for prompt builders and parsers (created on demand)
         self._prompt_builders = {}
         self._response_parsers = {}
 
-        # Mode-specific initialization
         if self.mode == 'random_few_shot':
             self._setup_random_few_shot()
         elif self.mode == 'semantic_few_shot':
@@ -224,13 +224,6 @@ class TabularLLMClassifier(ClassifierMixin, BaseEstimator):
 
     def _setup_semantic_few_shot(self):
         """Setup for semantic few-shot mode: compute embeddings and build vector store."""
-        # Initialize embedder if not provided
-        if self.embedder is None:
-            self.embedder = OllamaEmbedder(model='nomic-embed-text')
-            if self.verbose:
-                logger.info("Using default OllamaEmbedder with nomic-embed-text")
-
-        # Initialize vector store if string
         if isinstance(self.vector_store, str):
             if self.vector_store == 'sklearn':
                 self._vector_store = SklearnVectorStore()
@@ -241,16 +234,29 @@ class TabularLLMClassifier(ClassifierMixin, BaseEstimator):
         else:
             self._vector_store = self.vector_store
 
-        # Compute embeddings for training data
-        if self.verbose:
-            logger.info("Computing embeddings for training data...")
+        if self.precomputed_embeddings is not None:
+            embeddings = self.precomputed_embeddings
+            if len(embeddings) != len(self._X_train):
+                raise ConfigurationError(
+                    f"precomputed_embeddings length ({len(embeddings)}) does not match "
+                    f"training data length ({len(self._X_train)})"
+                )
+            if self.verbose:
+                logger.info(f"Using pre-computed embeddings ({embeddings.shape[1]} dims)")
+        else:
+            if self.embedder is None:
+                self.embedder = OllamaEmbedder(model='nomic-embed-text')
+                if self.verbose:
+                    logger.info("Using default OllamaEmbedder with nomic-embed-text")
 
-        embeddings = self.embedder.embed_dataframe(
-            self._X_train,
-            columns=self.feature_names_in_.tolist()
-        )
+            if self.verbose:
+                logger.info("Computing embeddings for training data...")
 
-        # Build metadata for vector store
+            embeddings = self.embedder.embed_dataframe(
+                self._X_train,
+                columns=self.feature_names_in_.tolist()
+            )
+
         metadata = []
         for i in range(len(self._X_train)):
             metadata.append({
@@ -259,7 +265,6 @@ class TabularLLMClassifier(ClassifierMixin, BaseEstimator):
                 'label': str(self._y_train[i])
             })
 
-        # Add to vector store
         self._vector_store.add(embeddings, metadata)
 
         if self.verbose:
@@ -289,7 +294,6 @@ class TabularLLMClassifier(ClassifierMixin, BaseEstimator):
         for result in results:
             pred = result.get('prediction')
             if pred is None or pred not in [str(c) for c in self.classes_]:
-                # Default to first class if parsing failed
                 pred = str(self.classes_[0])
             predictions.append(pred)
 
@@ -299,7 +303,7 @@ class TabularLLMClassifier(ClassifierMixin, BaseEstimator):
         """
         Predict class probabilities for samples in X.
 
-        Uses 'probabilities' prompt type internally (JSON with scores for each class).
+        Uses 'binary_confidence' or 'multiclass_confidence' prompt type internally.
 
         Parameters
         ----------
@@ -313,7 +317,8 @@ class TabularLLMClassifier(ClassifierMixin, BaseEstimator):
         """
         check_is_fitted(self)
 
-        results = self._predict_internal(X, prompt_type='probabilities')
+        prompt_type = 'binary_confidence' if len(self.classes_) == 2 else 'multiclass_confidence'
+        results = self._predict_internal(X, prompt_type=prompt_type)
         n_classes = len(self.classes_)
         probas = []
 
@@ -323,11 +328,18 @@ class TabularLLMClassifier(ClassifierMixin, BaseEstimator):
                     result['probabilities'].get(str(c), 1.0 / n_classes)
                     for c in self.classes_
                 ]
+            elif 'confidence' in result and n_classes == 2:
+                confidence = result['confidence']
+                prediction = result.get('prediction')
+                proba = []
+                for c in self.classes_:
+                    if str(c) == prediction:
+                        proba.append(confidence)
+                    else:
+                        proba.append(1.0 - confidence)
             else:
-                # Fallback to uniform if parsing failed
                 proba = [1.0 / n_classes] * n_classes
 
-            # Normalize to ensure sum = 1
             proba = np.array(proba)
             proba = proba / proba.sum()
             probas.append(proba)
@@ -337,7 +349,8 @@ class TabularLLMClassifier(ClassifierMixin, BaseEstimator):
     def predict_with_metadata(
         self,
         X,
-        prompt_type: str = 'probabilities'
+        prompt_type: str = 'multiclass_confidence',
+        precomputed_embeddings: Optional[np.ndarray] = None
     ) -> List[Dict[str, Any]]:
         """
         Predict with full metadata including retrieved examples and prompts.
@@ -346,8 +359,12 @@ class TabularLLMClassifier(ClassifierMixin, BaseEstimator):
         ----------
         X : array-like or DataFrame of shape (n_samples, n_features)
             Samples to predict
-        prompt_type : str, default='probabilities'
-            Prompt type to use: 'standard', 'confidence', or 'probabilities'
+        prompt_type : str, default='multiclass_confidence'
+            Prompt type to use: 'standard', 'binary_confidence', or 'multiclass_confidence'
+        precomputed_embeddings : ndarray of shape (n_samples, embedding_dim), optional
+            Pre-computed embeddings for test data. When provided,
+            used as query vectors for semantic_few_shot instead of
+            computing embeddings on-the-fly.
 
         Returns
         -------
@@ -362,20 +379,28 @@ class TabularLLMClassifier(ClassifierMixin, BaseEstimator):
             - 'duration': inference time
         """
         check_is_fitted(self)
-        return self._predict_internal(X, prompt_type=prompt_type, include_metadata=True)
+        return self._predict_internal(
+            X, prompt_type=prompt_type, include_metadata=True,
+            precomputed_embeddings=precomputed_embeddings
+        )
 
     def _predict_internal(
         self,
         X,
         prompt_type: str,
-        include_metadata: bool = False
+        include_metadata: bool = False,
+        precomputed_embeddings: Optional[np.ndarray] = None
     ) -> List[Dict[str, Any]]:
         """Internal prediction method."""
-        # Convert to DataFrame if needed
         if not isinstance(X, pd.DataFrame):
             X = pd.DataFrame(X, columns=self.feature_names_in_)
 
-        # Get prompt builder and parser for this prompt type
+        if precomputed_embeddings is not None and len(precomputed_embeddings) != len(X):
+            raise ConfigurationError(
+                f"precomputed_embeddings length ({len(precomputed_embeddings)}) "
+                f"does not match X length ({len(X)})"
+            )
+
         prompt_builder = self._get_prompt_builder(prompt_type)
         response_parser = self._get_response_parser(prompt_type)
 
@@ -389,16 +414,14 @@ class TabularLLMClassifier(ClassifierMixin, BaseEstimator):
             row = X.iloc[i]
             query_features = row.to_dict()
 
-            # Get examples based on mode
-            examples = self._get_examples(query_features)
+            query_embedding = precomputed_embeddings[i] if precomputed_embeddings is not None else None
 
-            # Build prompt
+            examples = self._get_examples(query_features, query_embedding=query_embedding)
+
             prompt = prompt_builder.build(query_features, examples)
 
-            # Generate response
             llm_response = self._llm_backend.generate(prompt)
 
-            # Parse response
             parsed = response_parser.parse(llm_response.content)
 
             result = {
@@ -418,7 +441,11 @@ class TabularLLMClassifier(ClassifierMixin, BaseEstimator):
 
         return results
 
-    def _get_examples(self, query_features: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
+    def _get_examples(
+        self,
+        query_features: Dict[str, Any],
+        query_embedding: Optional[np.ndarray] = None
+    ) -> Optional[List[Dict[str, Any]]]:
         """Get few-shot examples based on mode."""
         if self.mode == 'zero_shot':
             return None
@@ -433,11 +460,10 @@ class TabularLLMClassifier(ClassifierMixin, BaseEstimator):
             return examples
 
         elif self.mode == 'semantic_few_shot':
-            # Compute query embedding
-            query_text = key_value_serialize(query_features)
-            query_embedding = self.embedder.embed([query_text])[0]
+            if query_embedding is None:
+                query_text = key_value_serialize(query_features)
+                query_embedding = self.embedder.embed([query_text])[0]
 
-            # Find nearest neighbors
             indices, distances = self._vector_store.query(query_embedding, self.k_shots)
             metadata_list = self._vector_store.get_metadata(indices)
 
@@ -458,6 +484,7 @@ class TabularLLMClassifier(ClassifierMixin, BaseEstimator):
             'mode': self.mode,
             'k_shots': self.k_shots,
             'embedder': self.embedder,
+            'precomputed_embeddings': self.precomputed_embeddings,
             'vector_store': self.vector_store,
             'task_description': self.task_description,
             'instruction': self.instruction,

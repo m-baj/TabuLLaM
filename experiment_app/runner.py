@@ -135,13 +135,11 @@ TabularLLMClassifier library.[/dim]
 
     def create_experiment(self) -> ExperimentConfig:
         """Create a single experiment configuration through prompts."""
-        # Experiment name
         name = inquirer.text(
             message="Experiment name (optional):",
             default="",
         ).execute()
 
-        # Datasets
         datasets = inquirer.checkbox(
             message="Select dataset(s):",
             choices=[
@@ -155,7 +153,6 @@ TabularLLMClassifier library.[/dim]
             invalid_message="Select at least one dataset"
         ).execute()
 
-        # Models
         models = inquirer.checkbox(
             message="Select model(s):",
             choices=[Choice(value=m, name=m) for m in AVAILABLE_MODELS],
@@ -163,7 +160,6 @@ TabularLLMClassifier library.[/dim]
             invalid_message="Select at least one model"
         ).execute()
 
-        # Modes
         modes = inquirer.checkbox(
             message="Select mode(s):",
             choices=[
@@ -175,7 +171,6 @@ TabularLLMClassifier library.[/dim]
             invalid_message="Select at least one mode"
         ).execute()
 
-        # Seeds
         seed_choice = inquirer.select(
             message="Select seeds:",
             choices=[
@@ -196,7 +191,6 @@ TabularLLMClassifier library.[/dim]
             ).execute()
             seeds = [int(s.strip()) for s in seeds_input.split(",")]
 
-        # Prediction mode
         prediction_mode = inquirer.select(
             message="Prediction mode:",
             choices=[
@@ -206,7 +200,6 @@ TabularLLMClassifier library.[/dim]
             default="predict_proba"
         ).execute()
 
-        # Advanced options
         show_advanced = inquirer.confirm(
             message="Configure advanced options?",
             default=False

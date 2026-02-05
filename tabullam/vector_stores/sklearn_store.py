@@ -53,7 +53,7 @@ class SklearnVectorStore(BaseVectorStore):
         self._index = NearestNeighbors(
             metric=self.metric,
             algorithm=self.algorithm,
-            n_neighbors=min(10, len(embeddings))  # Default max neighbors
+            n_neighbors=min(10, len(embeddings))
         )
         self._index.fit(embeddings)
 
@@ -69,7 +69,6 @@ class SklearnVectorStore(BaseVectorStore):
         if query_embedding.ndim == 1:
             query_embedding = query_embedding.reshape(1, -1)
 
-        # Ensure k doesn't exceed number of stored vectors
         k = min(k, len(self._embeddings))
 
         distances, indices = self._index.kneighbors(query_embedding, n_neighbors=k)

@@ -4,8 +4,8 @@ from typing import Optional, List
 
 from ..base.response_parser import BaseResponseParser
 from .standard import StandardParser
-from .confidence import ConfidenceParser
-from .probabilities import ProbabilitiesParser
+from .binary_confidence import BinaryConfidenceParser
+from .multiclass_confidence import MulticlassConfidenceParser
 
 
 def create_response_parser(
@@ -19,7 +19,7 @@ def create_response_parser(
     Parameters
     ----------
     prompt_type : str
-        Type of prompt: 'standard', 'confidence', or 'probabilities'
+        Type of prompt: 'standard', 'binary_confidence', or 'multiclass_confidence'
     class_labels : list of str
         Possible class labels
     positive_class : str, optional
@@ -32,8 +32,8 @@ def create_response_parser(
     """
     parsers = {
         'standard': StandardParser,
-        'confidence': ConfidenceParser,
-        'probabilities': ProbabilitiesParser,
+        'binary_confidence': BinaryConfidenceParser,
+        'multiclass_confidence': MulticlassConfidenceParser,
     }
 
     if prompt_type not in parsers:
@@ -48,7 +48,7 @@ def create_response_parser(
 __all__ = [
     'BaseResponseParser',
     'StandardParser',
-    'ConfidenceParser',
-    'ProbabilitiesParser',
+    'BinaryConfidenceParser',
+    'MulticlassConfidenceParser',
     'create_response_parser',
 ]

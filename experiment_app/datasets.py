@@ -5,18 +5,69 @@ Dataset loading utilities.
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional, List, Union
 from sklearn.model_selection import train_test_split
-
-from sqlalchemy import create_engine
-from src.RAG.config import config
 
 from .config import DATASETS_INFO, get_dataset_info
 
 
+def filter_rare_classes(
+    X: pd.DataFrame,
+    y: pd.Series,
+    embeddings: Optional[np.ndarray] = None,
+    min_samples: int = 2
+) -> Union[Tuple[pd.DataFrame, pd.Series], Tuple[pd.DataFrame, pd.Series, np.ndarray]]:
+    """
+    Filter out classes that have fewer than min_samples instances.
+
+    This is necessary for stratified train-test splitting, which requires
+    at least 2 samples per class.
+
+    Parameters
+    ----------
+    X : pd.DataFrame
+        Features
+    y : pd.Series
+        Target labels
+    embeddings : np.ndarray, optional
+        Pre-computed embeddings aligned with X and y
+    min_samples : int, default=2
+        Minimum number of samples required per class
+
+    Returns
+    -------
+    X_filtered, y_filtered [, embeddings_filtered]
+        Filtered data with rare classes removed
+
+    Warnings
+    --------
+    Prints a warning if any classes are filtered out.
+    """
+    class_counts = y.value_counts()
+    rare_classes = class_counts[class_counts < min_samples].index.tolist()
+
+    if rare_classes:
+        print(f"  [WARNING] Filtering out classes with < {min_samples} samples: {rare_classes}")
+        print(f"            Class counts: {dict(class_counts[rare_classes])}")
+
+        mask = ~y.isin(rare_classes)
+        X_filtered = X[mask].reset_index(drop=True)
+        y_filtered = y[mask].reset_index(drop=True)
+
+        if embeddings is not None:
+            embeddings_filtered = embeddings[mask.values]
+            return X_filtered, y_filtered, embeddings_filtered
+
+        return X_filtered, y_filtered
+
+    if embeddings is not None:
+        return X, y, embeddings
+
+    return X, y
+
+
 def get_data_dir() -> Path:
     """Get the data directory path."""
-    # Look for data directory relative to project root
     current = Path(__file__).parent.parent
     data_dir = current / 'data'
     if data_dir.exists():
@@ -26,10 +77,7 @@ def get_data_dir() -> Path:
 
 def load_dataset(dataset_name: str) -> Tuple[pd.DataFrame, str]:
     """
-    Load a dataset by name.
-
-    Tries to load from local file first (parquet/csv),
-    falls back to PostgreSQL if file not found.
+    Load a dataset by name from local parquet/csv file.
 
     Parameters
     ----------
@@ -47,38 +95,24 @@ def load_dataset(dataset_name: str) -> Tuple[pd.DataFrame, str]:
     if not info:
         raise ValueError(f"Unknown dataset: {dataset_name}")
 
-    df = None
-    source = None
+    data_dir = get_data_dir()
+    file_path = data_dir / f"{dataset_name}.parquet"
 
-    # Try loading from local file first
-    try:
-        data_dir = get_data_dir()
-        file_path = data_dir / f"{dataset_name}.parquet"
+    if not file_path.exists():
+        file_path = data_dir / f"{dataset_name}.csv"
 
-        if not file_path.exists():
-            file_path = data_dir / f"{dataset_name}.csv"
+    if not file_path.exists():
+        raise FileNotFoundError(
+            f"Dataset '{dataset_name}' not found. "
+            f"Expected file at data/{dataset_name}.parquet or data/{dataset_name}.csv"
+        )
 
-        if file_path.exists():
-            if file_path.suffix == '.parquet':
-                df = pd.read_parquet(file_path)
-            else:
-                df = pd.read_csv(file_path)
-            source = f"file: {file_path}"
-    except FileNotFoundError:
-        pass
+    if file_path.suffix == '.parquet':
+        df = pd.read_parquet(file_path)
+    else:
+        df = pd.read_csv(file_path)
 
-    # Fallback to PostgreSQL
-    if df is None:
-        try:
-            df = load_dataset_from_postgres(dataset_name)
-            source = f"postgres: {dataset_name}"
-        except Exception as e:
-            raise FileNotFoundError(
-                f"Dataset '{dataset_name}' not found. "
-                f"Tried local files and PostgreSQL. PostgreSQL error: {e}"
-            )
-
-    print(f"[datasets] Loaded from {source}, {len(df)} rows")
+    print(f"[datasets] Loaded from {file_path}, {len(df)} rows")
 
     return df, info['target_column']
 
@@ -111,7 +145,6 @@ def prepare_features(
     if exclude_columns:
         exclude.update(exclude_columns)
 
-    # Also exclude any embedding columns
     for col in df.columns:
         if 'embedding' in col.lower():
             exclude.add(col)
@@ -132,15 +165,20 @@ def split_data(
     """
     Split data into train and test sets.
 
+    Automatically filters out classes with fewer than 2 samples
+    to enable stratified splitting.
+
     Returns
     -------
     X_train, X_test, y_train, y_test
     """
+    X_filtered, y_filtered = filter_rare_classes(X, y, min_samples=2)
+
     return train_test_split(
-        X, y,
+        X_filtered, y_filtered,
         test_size=test_size,
         random_state=random_state,
-        stratify=y
+        stratify=y_filtered
     )
 
 
@@ -154,6 +192,8 @@ def sample_stratified(
     Sample n_samples from X, y with stratification.
 
     If n_samples >= len(X), returns original data unchanged.
+    Automatically filters out classes with fewer than 2 samples
+    to enable stratified sampling.
 
     Parameters
     ----------
@@ -170,38 +210,117 @@ def sample_stratified(
     -------
     X_sampled, y_sampled
     """
-    if n_samples >= len(X):
-        return X, y
+    X_filtered, y_filtered = filter_rare_classes(X, y, min_samples=2)
 
-    # Use train_test_split to get stratified sample
-    # We want n_samples, so test_size = n_samples / len(X)
+    if n_samples >= len(X_filtered):
+        return X_filtered, y_filtered
+
     _, X_sampled, _, y_sampled = train_test_split(
-        X, y,
-        test_size=n_samples / len(X),
+        X_filtered, y_filtered,
+        test_size=n_samples / len(X_filtered),
         random_state=random_state,
-        stratify=y
+        stratify=y_filtered
     )
     return X_sampled, y_sampled
 
 
-def load_dataset_from_postgres(table_name: str) -> pd.DataFrame:
+def extract_embeddings(
+    df: pd.DataFrame,
+    embedding_column: Optional[str] = None
+) -> Optional[np.ndarray]:
     """
-    Load a dataset directly from PostgreSQL database.
+    Extract pre-computed embeddings from a DataFrame column.
 
     Parameters
     ----------
-    table_name : str
-        Name of the table to load
+    df : pd.DataFrame
+        DataFrame containing an embedding column
+    embedding_column : str, optional
+        Name of the embedding column. If None, auto-detects
+        the first column with 'embedding' in its name.
 
     Returns
     -------
-    df : pd.DataFrame
-        The loaded dataframe with table_name stored in df.attrs
+    embeddings : np.ndarray or None
+        Extracted embeddings as (n_samples, embedding_dim) array,
+        or None if no embedding column found
     """
-    engine = create_engine(config.POSTGRES_URL)
-    df = pd.read_sql(f"SELECT * FROM {table_name};", engine)
+    if embedding_column is None:
+        embedding_cols = [c for c in df.columns if 'embedding' in c.lower()]
+        if not embedding_cols:
+            return None
+        embedding_column = embedding_cols[0]
+    elif embedding_column not in df.columns:
+        return None
 
-    df.sort_values(by='id').reset_index(drop=True, inplace=True)
-    df.drop(columns=['id', 'serialized_row'], inplace=True, errors='ignore')
-    df.attrs['table_name'] = table_name
-    return df
+    raw = df[embedding_column]
+
+    first_val = raw.iloc[0]
+    if isinstance(first_val, str):
+        import json
+        embeddings = np.array([json.loads(v) for v in raw])
+    elif isinstance(first_val, (list, np.ndarray)):
+        embeddings = np.array(raw.tolist())
+    else:
+        return None
+
+    return embeddings
+
+
+def split_data_with_embeddings(
+    X: pd.DataFrame,
+    y: pd.Series,
+    embeddings: np.ndarray,
+    test_size: float = 0.2,
+    random_state: int = 42
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, np.ndarray, np.ndarray]:
+    """
+    Split data into train and test sets, keeping embeddings aligned.
+
+    Automatically filters out classes with fewer than 2 samples
+    to enable stratified splitting.
+
+    Returns
+    -------
+    X_train, X_test, y_train, y_test, embeddings_train, embeddings_test
+    """
+    X_filtered, y_filtered, embeddings_filtered = filter_rare_classes(
+        X, y, embeddings, min_samples=2
+    )
+
+    return train_test_split(
+        X_filtered, y_filtered, embeddings_filtered,
+        test_size=test_size,
+        random_state=random_state,
+        stratify=y_filtered
+    )
+
+
+def sample_stratified_with_embeddings(
+    X: pd.DataFrame,
+    y: pd.Series,
+    embeddings: np.ndarray,
+    n_samples: int,
+    random_state: int = 42
+) -> Tuple[pd.DataFrame, pd.Series, np.ndarray]:
+    """
+    Sample n_samples from X, y, embeddings with stratification.
+
+    If n_samples >= len(X), returns original data unchanged.
+    Automatically filters out classes with fewer than 2 samples
+    to enable stratified sampling.
+    """
+    X_filtered, y_filtered, embeddings_filtered = filter_rare_classes(
+        X, y, embeddings, min_samples=2
+    )
+
+    if n_samples >= len(X_filtered):
+        return X_filtered, y_filtered, embeddings_filtered
+
+    _, X_sampled, _, y_sampled, _, emb_sampled = train_test_split(
+        X_filtered, y_filtered, embeddings_filtered,
+        test_size=n_samples / len(X_filtered),
+        random_state=random_state,
+        stratify=y_filtered
+    )
+    return X_sampled, y_sampled, emb_sampled

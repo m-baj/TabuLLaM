@@ -46,32 +46,23 @@ class BaseResponseParser(ABC):
 
         json_str = match.group()
 
-        # Try parsing as-is first
         try:
             return json.loads(json_str)
         except json.JSONDecodeError:
             pass
 
-        # Try fixing common LLM JSON issues:
-        # 1. Single quotes -> double quotes
         fixed = json_str.replace("'", '"')
-
-        # 2. Remove trailing commas before } or ]
         fixed = re.sub(r',\s*([}\]])', r'\1', fixed)
 
-        # 3. Try again
         try:
             return json.loads(fixed)
         except json.JSONDecodeError:
             pass
 
-        # 4. Try extracting key-value pairs manually for simple cases
-        # Pattern: "key": value or 'key': value or key: value
         pairs = re.findall(r'["\']?(\w+)["\']?\s*:\s*([0-9.]+|"[^"]*"|\'[^\']*\')', json_str)
         if pairs:
             result = {}
             for key, value in pairs:
-                # Clean up value
                 value = value.strip('"\'')
                 try:
                     result[key] = float(value)

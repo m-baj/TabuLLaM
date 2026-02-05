@@ -42,7 +42,6 @@ With scikit-learn pipeline:
 
 from .classifier import TabularLLMClassifier
 
-# Base classes
 from .base import (
     TaskMetadata,
     LLMResponse,
@@ -51,48 +50,41 @@ from .base import (
     BasePromptBuilder,
     BaseResponseParser,
     BaseVectorStore,
+    BaseEmbedder,
 )
 
-# Prompt builders
 from .prompt_builders import (
     StandardPromptBuilder,
-    ConfidencePromptBuilder,
-    ProbabilitiesPromptBuilder,
+    BinaryConfidencePromptBuilder,
+    MulticlassConfidencePromptBuilder,
     create_prompt_builder,
 )
 
-# Response parsers
 from .response_parsers import (
     StandardParser,
-    ConfidenceParser,
-    ProbabilitiesParser,
+    BinaryConfidenceParser,
+    MulticlassConfidenceParser,
     create_response_parser,
 )
 
-# LLM backend implementations
 from .llm_backends import (
     LangchainBackend,
     OllamaBackend,
-    OpenAIBackend,
     GoogleBackend,
     create_llm_backend,
     parse_langchain_response,
 )
 
-# Embeddings
 from .embeddings import (
-    BaseEmbedder,
     OllamaEmbedder,
     OpenAIEmbedder,
     SentenceTransformerEmbedder,
 )
 
-# Vector stores
 from .vector_stores import (
     SklearnVectorStore,
 )
 
-# Exceptions
 from .exceptions import (
     TabularLLMError,
     NotFittedError,
@@ -105,10 +97,8 @@ from .exceptions import (
 __version__ = '0.1.0'
 
 __all__ = [
-    # Main classifier
     'TabularLLMClassifier',
 
-    # Base classes
     'TaskMetadata',
     'LLMResponse',
     'LLMResponseDuration',
@@ -117,36 +107,29 @@ __all__ = [
     'BaseResponseParser',
     'BaseVectorStore',
 
-    # Prompt builders
     'StandardPromptBuilder',
-    'ConfidencePromptBuilder',
-    'ProbabilitiesPromptBuilder',
+    'BinaryConfidencePromptBuilder',
+    'MulticlassConfidencePromptBuilder',
     'create_prompt_builder',
 
-    # Response parsers
     'StandardParser',
-    'ConfidenceParser',
-    'ProbabilitiesParser',
+    'BinaryConfidenceParser',
+    'MulticlassConfidenceParser',
     'create_response_parser',
 
-    # LLM Backends
     'LangchainBackend',
     'OllamaBackend',
-    'OpenAIBackend',
     'GoogleBackend',
     'create_llm_backend',
     'parse_langchain_response',
 
-    # Embeddings
     'BaseEmbedder',
     'OllamaEmbedder',
     'OpenAIEmbedder',
     'SentenceTransformerEmbedder',
 
-    # Vector stores
     'SklearnVectorStore',
 
-    # Exceptions
     'TabularLLMError',
     'NotFittedError',
     'EmbeddingError',

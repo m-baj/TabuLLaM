@@ -4,7 +4,7 @@ from ..exceptions import ConfigurationError
 
 
 VALID_MODES = ['zero_shot', 'random_few_shot', 'semantic_few_shot']
-VALID_PROMPT_TYPES = ['standard', 'confidence', 'probabilities']
+VALID_PROMPT_TYPES = ['standard', 'binary_confidence', 'multiclass_confidence']
 VALID_PROVIDERS = ['openai', 'ollama', 'google']
 
 

@@ -1,5 +1,7 @@
 """Standard prompt builder for plain text class prediction."""
 
+import textwrap
+
 from ..base.prompt_builder import BasePromptBuilder
 
 
@@ -14,8 +16,6 @@ class StandardPromptBuilder(BasePromptBuilder):
         )
 
     def _format_output_section(self) -> str:
-        return (
-            "## Output\n"
-            f"Respond with exactly one of: {', '.join(self.task_metadata.class_labels)}\n"
-            "DO NOT add any explanations or analysis."
-        )
+        return textwrap.dedent("""
+            DO NOT analyze, directly give the prediction answer as a plain class value. Do NOT add any explanations.
+        """)

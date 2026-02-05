@@ -9,10 +9,7 @@ import yaml
 import json
 
 
-# Available options
 AVAILABLE_DATASETS = [
-    'adults_income',
-    'bank_marketing',
     'breast_cancer',
     'caesarian',
     'car_evaluation',
@@ -20,11 +17,11 @@ AVAILABLE_DATASETS = [
 ]
 
 AVAILABLE_MODELS = [
+    'openai:gpt-5-mini',
     'openai:gpt-4o-mini',
     'openai:gpt-4o',
     'ollama:llama3.1:8b',
-    'ollama:qwen2.5:7b',
-    'google:gemini-1.5-flash',
+    'ollama:gpt-oss:20b',
 ]
 
 AVAILABLE_MODES = [
@@ -34,59 +31,52 @@ AVAILABLE_MODES = [
 ]
 
 AVAILABLE_PREDICTION_MODES = [
-    'predict',       # Standard prediction (faster, no probabilities)
-    'predict_proba'  # Probability prediction (slower, includes confidence scores)
+    'predict',
+    'predict_proba'
 ]
 
 DEFAULT_SEEDS = [42, 7, 123]
 
-# Dataset metadata
+DEFAULT_EMBEDDING_MODEL = 'sentence_transformers:all-MiniLM-L6-v2'
+
 DATASETS_INFO = {
-    'adults_income': {
-        'name': 'adults_income',
-        'target_column': 'income',
-        'description': "Predict if an individual's annual income is >50K or <=50K based on demographics.",
-        'positive_class': '>50K',
-        'binary': True,
-        'file': 'data/adults_income.parquet'
-    },
-    'bank_marketing': {
-        'name': 'bank_marketing',
-        'target_column': 'y',
-        'description': "Predict whether a client will subscribe to a bank term deposit.",
-        'positive_class': 'yes',
-        'binary': True,
-        'file': 'data/bank_marketing.parquet'
-    },
     'breast_cancer': {
         'name': 'breast_cancer',
         'target_column': 'Class',
-        'description': "Classify whether cancer recurrence is likely based on clinical records.",
+        'description': "This dataset contains clinical records of breast cancer patients, including tumor size, number of involved lymph nodes, degree of malignancy, and menopause status. Your task is to classify whether a recurrence of cancer is likely to occur based on these medical attributes. The target variable is 'Class', which can be: 'recurrence-events' or 'no-recurrence-events'.",
         'positive_class': 'recurrence-events',
         'binary': True,
-        'file': 'data/breast_cancer.parquet'
+        'file': 'data/breast_cancer.parquet',
+        'embedding_model': 'ollama:nomic-embed-text:latest',
+        'embedding_column': 'embedding_nomic_embed_text'
     },
     'caesarian': {
         'name': 'caesarian',
         'target_column': 'Caesarian',
-        'description': "Predict whether a caesarian section is required.",
+        'description': "This dataset contains information about caesarian section results of pregnant women with the most important characteristics of delivery problems in the medical field. Your task is to predict whether a caesarian section is required based on these medical factors.",
         'positive_class': 'yes',
         'binary': True,
-        'file': 'data/caesarian.parquet'
+        'file': 'data/caesarian.parquet',
+        'embedding_model': 'ollama:nomic-embed-text:latest',
+        'embedding_column': 'embedding_nomic_embed_text'
     },
     'car_evaluation': {
         'name': 'car_evaluation',
         'target_column': 'class',
-        'description': "Classify car acceptability: unacc, acc, good, or vgood.",
+        'description': "This dataset contains evaluations of cars based on various attributes such as buying price, maintenance cost, number of doors, passenger capacity, luggage boot size, and safety features. Your task is to classify the overall acceptability of a car into one of four categories: unacc (unacceptable), acc (acceptable), good, and vgood (very good).",
         'binary': False,
-        'file': 'data/car_evaluation.parquet'
+        'file': 'data/car_evaluation.parquet',
+        'embedding_model': 'ollama:nomic-embed-text:latest',
+        'embedding_column': 'embedding_nomic_embed_text'
     },
     'wine_quality': {
         'name': 'wine_quality',
         'target_column': 'quality',
-        'description': "Predict wine quality rating based on physicochemical tests.",
+        'description': "This dataset contains physicochemical tests of wines and their quality ratings. Your task is to predict the quality rating based on the given features.",
         'binary': False,
-        'file': 'data/wine_quality.parquet'
+        'file': 'data/wine_quality.parquet',
+        'embedding_model': 'ollama:nomic-embed-text:latest',
+        'embedding_column': 'embedding_nomic_embed_text'
     }
 }
 

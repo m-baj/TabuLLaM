@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from unittest.mock import Mock, patch, MagicMock
 
-from tabullam.embeddings.base import BaseEmbedder
+from tabullam.base.embedder import BaseEmbedder
 from tabullam.embeddings.ollama import OllamaEmbedder
 from tabullam.embeddings.openai import OpenAIEmbedder
 from tabullam.embeddings.sentence_transformers import SentenceTransformerEmbedder

@@ -4,8 +4,8 @@ from typing import Optional
 
 from ..base.prompt_builder import BasePromptBuilder, TaskMetadata
 from .standard import StandardPromptBuilder
-from .confidence import ConfidencePromptBuilder
-from .probabilities import ProbabilitiesPromptBuilder
+from .binary_confidence import BinaryConfidencePromptBuilder
+from .multiclass_confidence import MulticlassConfidencePromptBuilder
 
 
 def create_prompt_builder(
@@ -19,7 +19,7 @@ def create_prompt_builder(
     Parameters
     ----------
     prompt_type : str
-        Type of prompt: 'standard', 'confidence', or 'probabilities'
+        Type of prompt: 'standard', 'binary_confidence', or 'multiclass_confidence'
     task_metadata : TaskMetadata
         Metadata about the classification task
     instruction : str, optional
@@ -32,8 +32,8 @@ def create_prompt_builder(
     """
     builders = {
         'standard': StandardPromptBuilder,
-        'confidence': ConfidencePromptBuilder,
-        'probabilities': ProbabilitiesPromptBuilder,
+        'binary_confidence': BinaryConfidencePromptBuilder,
+        'multiclass_confidence': MulticlassConfidencePromptBuilder,
     }
 
     if prompt_type not in builders:
@@ -49,7 +49,7 @@ __all__ = [
     'BasePromptBuilder',
     'TaskMetadata',
     'StandardPromptBuilder',
-    'ConfidencePromptBuilder',
-    'ProbabilitiesPromptBuilder',
+    'BinaryConfidencePromptBuilder',
+    'MulticlassConfidencePromptBuilder',
     'create_prompt_builder',
 ]

@@ -15,7 +15,6 @@ from tabullam.base.llm_backend import (
 from tabullam.llm_backends import (
     LangchainBackend,
     OllamaBackend,
-    OpenAIBackend,
     GoogleBackend,
     create_llm_backend,
     parse_langchain_response,
@@ -179,40 +178,6 @@ class TestOllamaBackend:
         assert result.content == 'test response'
 
 
-class TestOpenAIBackend:
-    """Tests for OpenAIBackend."""
-
-    def test_model_name_property(self):
-        """Test model_name property includes openai prefix."""
-        backend = OpenAIBackend('gpt-4o-mini')
-        assert backend.model_name == 'openai:gpt-4o-mini'
-
-    def test_default_model(self):
-        """Test default model name."""
-        backend = OpenAIBackend()
-        assert backend._model == 'gpt-4o-mini'
-
-    def test_lazy_initialization(self):
-        """Test that client is lazily initialized."""
-        backend = OpenAIBackend('gpt-4o-mini')
-        assert backend._client is None
-
-    def test_generate_with_mock_client(self, mock_openai_response):
-        """Test generate with mocked client."""
-        backend = OpenAIBackend('gpt-4o-mini')
-
-        # Manually set a mock client
-        mock_client = Mock()
-        mock_client.chat.completions.create.return_value = mock_openai_response
-        backend._client = mock_client
-
-        result = backend.generate('test prompt')
-
-        mock_client.chat.completions.create.assert_called_once()
-        assert result.content == 'predicted_class'
-        assert result.usage['input_tokens'] == 100
-
-
 class TestGoogleBackend:
     """Tests for GoogleBackend."""
 
@@ -254,10 +219,10 @@ class TestCreateLLMBackend:
     """Tests for create_llm_backend factory function."""
 
     def test_create_openai_backend(self):
-        """Test creating OpenAI backend."""
+        """Test creating OpenAI backend via LangChain."""
         backend = create_llm_backend('openai:gpt-4o-mini')
-        assert isinstance(backend, OpenAIBackend)
-        assert backend._model == 'gpt-4o-mini'
+        assert isinstance(backend, LangchainBackend)
+        assert backend._model_name == 'openai:gpt-4o-mini'
 
     def test_create_ollama_backend(self):
         """Test creating Ollama backend."""
@@ -296,18 +261,6 @@ class TestCreateLLMBackend:
 
 class TestBackendErrorHandling:
     """Tests for error handling in backends."""
-
-    def test_openai_error_wrapped(self, mock_openai_response):
-        """Test that OpenAI errors are wrapped in LLMBackendError."""
-        backend = OpenAIBackend('gpt-4o-mini')
-
-        mock_client = Mock()
-        mock_client.chat.completions.create.side_effect = Exception("API Error")
-        backend._client = mock_client
-
-        with pytest.raises(LLMBackendError) as exc_info:
-            backend.generate('test')
-        assert 'OpenAI API error' in str(exc_info.value)
 
     def test_ollama_error_wrapped(self):
         """Test that Ollama errors are wrapped in LLMBackendError."""

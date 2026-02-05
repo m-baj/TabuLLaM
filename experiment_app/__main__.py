@@ -14,7 +14,6 @@ from pathlib import Path
 from rich.console import Console
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
 console = Console()
@@ -56,13 +55,10 @@ Examples:
 
     try:
         if args.config:
-            # Run from config file
             run_from_config(args.config, args.output)
         elif args.quick:
-            # Quick test run
             run_quick_test(args.output)
         else:
-            # Interactive mode
             run_interactive(args.output)
 
     except KeyboardInterrupt:

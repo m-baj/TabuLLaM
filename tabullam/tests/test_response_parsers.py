@@ -8,8 +8,8 @@ import numpy as np
 from tabullam.base.response_parser import BaseResponseParser
 from tabullam.response_parsers import (
     StandardParser,
-    ConfidenceParser,
-    ProbabilitiesParser,
+    BinaryConfidenceParser,
+    MulticlassConfidenceParser,
     create_response_parser,
 )
 
@@ -66,13 +66,13 @@ class TestStandardParser:
         assert result['prediction'] == 'category'
 
 
-class TestConfidenceParser:
-    """Tests for ConfidenceParser."""
+class TestBinaryConfidenceParser:
+    """Tests for BinaryConfidenceParser."""
 
     @pytest.fixture
     def parser(self):
-        """Create a ConfidenceParser instance."""
-        return ConfidenceParser(
+        """Create a BinaryConfidenceParser instance."""
+        return BinaryConfidenceParser(
             class_labels=['no', 'yes'],
             positive_class='yes'
         )
@@ -131,19 +131,19 @@ class TestConfidenceParser:
         assert result['confidence'] == 0.5  # default is 5 / 10
 
 
-class TestProbabilitiesParser:
-    """Tests for ProbabilitiesParser."""
+class TestMulticlassConfidenceParser:
+    """Tests for MulticlassConfidenceParser."""
 
     @pytest.fixture
     def parser(self):
-        """Create a ProbabilitiesParser instance."""
-        return ProbabilitiesParser(
+        """Create a MulticlassConfidenceParser instance."""
+        return MulticlassConfidenceParser(
             class_labels=['low', 'medium', 'high'],
             positive_class='high'
         )
 
     def test_parse_valid_json(self, parser):
-        """Test parsing valid JSON with probabilities."""
+        """Test parsing valid JSON with confidence scores."""
         response = '{"low": 2, "medium": 3, "high": 5}'
         result = parser.parse(response)
         assert result['prediction'] == 'high'
@@ -214,16 +214,16 @@ class TestCreateResponseParser:
         parser = create_response_parser('standard', ['a', 'b', 'c'])
         assert isinstance(parser, StandardParser)
 
-    def test_create_confidence_parser(self):
-        """Test creating ConfidenceParser."""
-        parser = create_response_parser('confidence', ['no', 'yes'], 'yes')
-        assert isinstance(parser, ConfidenceParser)
+    def test_create_binary_confidence_parser(self):
+        """Test creating BinaryConfidenceParser."""
+        parser = create_response_parser('binary_confidence', ['no', 'yes'], 'yes')
+        assert isinstance(parser, BinaryConfidenceParser)
         assert parser.positive_class == 'yes'
 
-    def test_create_probabilities_parser(self):
-        """Test creating ProbabilitiesParser."""
-        parser = create_response_parser('probabilities', ['a', 'b', 'c'])
-        assert isinstance(parser, ProbabilitiesParser)
+    def test_create_multiclass_confidence_parser(self):
+        """Test creating MulticlassConfidenceParser."""
+        parser = create_response_parser('multiclass_confidence', ['a', 'b', 'c'])
+        assert isinstance(parser, MulticlassConfidenceParser)
 
     def test_create_invalid_type_raises(self):
         """Test that invalid prompt type raises ValueError."""

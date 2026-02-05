@@ -14,7 +14,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/  # Removed - was conflicting with old library name
 lib64/
 parts/
 sdist/
@@ -214,3 +214,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+.env
+
+# Datasets - explicitly NOT ignored (should be in repo for reproducibility)
+# data/

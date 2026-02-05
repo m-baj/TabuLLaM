@@ -52,7 +52,6 @@ class OllamaEmbedder(BaseEmbedder):
 
     def embed(self, texts: List[str]) -> np.ndarray:
         """Embed texts using Ollama API."""
-        import requests
 
         embeddings = []
         iterator = range(0, len(texts), self.batch_size)

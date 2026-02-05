@@ -1,5 +1,6 @@
 """Base class for prompt builders."""
 
+import textwrap
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Any
@@ -70,47 +71,39 @@ class BasePromptBuilder(ABC):
         str
             Complete prompt
         """
-        sections = [
-            self._format_instruction_section(),
-            self._format_metadata_section(),
-        ]
+        parts = []
+        parts.append(self.instruction)
+        parts.append(self._format_metadata_section())
 
         if examples:
-            sections.append(self._format_examples_section(examples))
+            parts.append(self._format_examples_section(examples))
 
-        sections.append(self._format_query_section(query_features))
-        sections.append(self._format_output_section())
+        parts.append(self._format_query_section(query_features))
+        parts.append(self._format_output_section())
 
-        return "\n\n".join(sections)
-
-    def _format_instruction_section(self) -> str:
-        """Format the instruction section."""
-        return f"## Instruction\n{self.instruction}"
+        return "\n".join(parts)
 
     def _format_metadata_section(self) -> str:
         """Format the task metadata section."""
-        lines = ["## Task Information"]
-
-        if self.task_metadata.task_description:
-            lines.append(f"Description: {self.task_metadata.task_description}")
-
-        lines.append(f"Features: {', '.join(self.task_metadata.feature_names)}")
-        lines.append(f"Possible classes: {', '.join(self.task_metadata.class_labels)}")
-
-        return "\n".join(lines)
+        return textwrap.dedent(f"""
+            Task description: {self.task_metadata.task_description}
+            Features: {', '.join(self.task_metadata.feature_names)}
+            Target label classes: {', '.join(self.task_metadata.class_labels)}
+        """)
 
     def _format_examples_section(self, examples: List[Dict[str, Any]]) -> str:
         """Format the few-shot examples section."""
-        lines = ["## Examples"]
-
-        for i, ex in enumerate(examples, 1):
+        section = ["Labeled instances:"]
+        for ex in examples:
             label_dict = {self.task_metadata.target_name: ex['label']}
             serialized = key_value_serialize(ex['features'], label_dict)
-            lines.append(f"{i}. {serialized}")
-
-        return "\n".join(lines)
+            section.append(serialized)
+        return "\n".join(section)
 
     def _format_query_section(self, query_features: Dict[str, Any]) -> str:
         """Format the query section."""
         serialized = key_value_serialize(query_features)
-        return f"## Query\nClassify the following instance:\n{serialized}"
+        return textwrap.dedent(f"""
+            Now use the provided metadata and instances to infer by analogy about the label of this new instance:
+            {serialized}
+        """)

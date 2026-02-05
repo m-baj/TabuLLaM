@@ -17,18 +17,15 @@ class StandardParser(BaseResponseParser):
         """Parse plain text response to extract class label."""
         response_lower = raw_response.lower().strip()
 
-        # Try exact match first
         for label in self.class_labels:
             if response_lower == label.lower():
                 return {'prediction': label}
 
-        # Try to find class name in response (longest first to avoid partial matches)
         sorted_labels = sorted(self.class_labels, key=len, reverse=True)
         pattern = r"(" + "|".join(map(re.escape, sorted_labels)) + r")"
         matches = re.findall(pattern, raw_response, re.IGNORECASE)
 
         if matches:
-            # Return the last match (often the final answer)
             found = matches[-1]
             for label in self.class_labels:
                 if found.lower() == label.lower():

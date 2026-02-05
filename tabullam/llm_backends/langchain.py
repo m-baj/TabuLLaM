@@ -25,7 +25,7 @@ def parse_langchain_response(response) -> LLMResponse:
         Parsed response with content, usage, duration, and reasoning
     """
     meta = getattr(response, 'response_metadata', {}) or {}
-    to_ms = 1e-6  # nanoseconds to milliseconds
+    to_ms = 1e-6
 
     duration = LLMResponseDuration(
         prompt_eval_duration=meta.get('prompt_eval_duration', 0) * to_ms,
@@ -33,14 +33,12 @@ def parse_langchain_response(response) -> LLMResponse:
         total_duration=meta.get('total_duration', 0) * to_ms
     )
 
-    # Handle reasoning content (for models with extended thinking)
     reasoning_data = []
     final_response = None
 
     if isinstance(response.content, str):
         final_response = response.content
     else:
-        # Handle structured content blocks (e.g., Claude's reasoning)
         for block in response.content:
             if isinstance(block, dict):
                 if block.get("type") == "reasoning":
@@ -55,7 +53,6 @@ def parse_langchain_response(response) -> LLMResponse:
                 elif block.type == "text":
                     final_response = getattr(block, 'text', '')
 
-    # Extract usage metadata
     usage = {}
     if hasattr(response, 'usage_metadata') and response.usage_metadata:
         usage_meta = response.usage_metadata
@@ -126,9 +123,26 @@ class LangchainBackend(BaseLLMBackend):
 
     def generate(self, prompt: str) -> LLMResponse:
         """Generate response using Langchain."""
+        import time
+        start_time = time.time()
+
         try:
             response = self.llm.invoke(prompt)
-            return parse_langchain_response(response)
+            elapsed_ms = (time.time() - start_time) * 1000  # Convert to ms
+
+            llm_response = parse_langchain_response(response)
+
+            # If duration is all zeros (provider doesn't return timing info),
+            # use client-side measurement
+            if llm_response.duration and llm_response.duration.total_duration == 0:
+                from ..base.llm_backend import LLMResponseDuration
+                llm_response.duration = LLMResponseDuration(
+                    prompt_eval_duration=0,
+                    eval_duration=0,
+                    total_duration=elapsed_ms
+                )
+
+            return llm_response
         except Exception as e:
             raise LLMBackendError(f"Langchain error: {e}") from e
 
