@@ -21,7 +21,7 @@ Podstawowe kroki do uruchomienia projektu:
 
 ```bash
 # 1. Sklonowanie repozytorium
-git clone <url-repozytorium>
+git clone https://github.com/m-baj/TabuLLaM.git
 cd TabuLLaM
 
 # 2. Instalacja zależności
